@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 type WeatherData = {
   local_temperature: number;
@@ -15,12 +15,18 @@ export default function GuessTemperatureGame() {
   const [guess, setGuess] = useState('');
   const [submitted, setSubmitted] = useState(false);
 
-  const handleSubmit = async () => {
-    const res = await fetch('/api/data');
-    const json = await res.json();
-    setRealData(json);
-    setSubmitted(true);
-  };
+  useEffect(() => {
+    const fetchInitialData = async () => {
+      const res = await fetch('/api/data');
+      const json = await res.json();
+      setRealData(json);
+    };
+    fetchInitialData();
+  }, []);
+
+  const handleSubmit = () => {
+  setSubmitted(true);
+};
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 to-gray-950 text-white flex flex-col items-center justify-center p-8">
