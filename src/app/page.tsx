@@ -1,92 +1,72 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import clsx from 'clsx';
 
-const ROWS = 12;
-const COLS = 7;
-
-function simulatePlinkoPath(startCol: number): number[] {
-  const path = [startCol];
-  let col = startCol;
-  const rand = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min;
-  for (let i = 0; i < ROWS; i++) {
-    const move = rand(0, 2);
-    if (move === 0 && col > 0) col--;
-    if (move === 2 && col < COLS - 1) col++;
-    path.push(col);
-  }
-  return path;
-}
-
-type RoomData = {
+type WeatherData = {
   local_temperature: number;
   local_humidity: number;
+  owm_temperature: number;
+  owm_humidity: number;
+  owm_description: string;
 };
 
-export default function Home() {
-  const [data, setData] = useState<RoomData | null>(null);
-  const [path, setPath] = useState<number[]>([]);
-  const [currentRow, setCurrentRow] = useState<number>(0);
+export default function GuessGame() {
+  const [realData, setRealData] = useState<WeatherData | null>(null);
+  const [guessedTemp, setGuessedTemp] = useState('');
+  const [guessedHumidity, setGuessedHumidity] = useState('');
+  const [submitted, setSubmitted] = useState(false);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      const res = await fetch('/api/data');
-      const json = await res.json();
-      setData(json);
-      const temp = json.local_temperature;
-      const startCol = Math.max(0, Math.min(COLS - 1, Math.floor(((temp - 15) / 40) * COLS)));
-      const p = simulatePlinkoPath(startCol);
-      setPath(p);
-      setCurrentRow(0);
-    };
-
-    fetchData();
-    const interval = setInterval(fetchData, 8000);
-    return () => clearInterval(interval);
-  }, []);
-
-  useEffect(() => {
-    if (path.length === 0) return;
-    const timer = setInterval(() => {
-      setCurrentRow((r) => {
-        if (r >= path.length - 1) {
-          clearInterval(timer);
-          return r;
-        }
-        return r + 1;
-      });
-    }, 300);
-    return () => clearInterval(timer);
-  }, [path]);
+  const handleSubmit = async () => {
+    const res = await fetch('/api/data');
+    const json = await res.json();
+    setRealData(json);
+    setSubmitted(true);
+  };
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-black to-gray-900 flex flex-col items-center justify-center py-10 px-4 text-white">
-      <h1 className="text-3xl font-bold mb-8">🔮 Plinko Sensor Game</h1>
-      <div className="grid grid-rows-[repeat(12,_30px)] grid-cols-7 gap-1 border p-2 rounded bg-white/10">
-        {Array.from({ length: ROWS }).map((_, rowIdx) => (
-          Array.from({ length: COLS }).map((_, colIdx) => {
-            const isBall = rowIdx === currentRow && path[rowIdx] === colIdx;
-            return (
-              <div
-                key={`${rowIdx}-${colIdx}`}
-                className={clsx(
-                  'w-8 h-8 rounded-full border border-white flex items-center justify-center',
-                  isBall ? 'bg-yellow-400 animate-bounce' : 'bg-white/10'
-                )}
-              >
-                {isBall && '🟡'}
-              </div>
-            );
-          })
-        ))}
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 to-gray-950 text-white flex flex-col items-center justify-center p-8">
+      <h1 className="text-3xl font-bold mb-6 text-center">🌡️ Guess the Room Weather</h1>
+
+      <div className="space-y-4 w-full max-w-md">
+        <div>
+          <label className="block text-sm mb-1">Guess the Temperature (°C):</label>
+          <input
+            type="number"
+            value={guessedTemp}
+            onChange={(e) => setGuessedTemp(e.target.value)}
+            className="w-full p-2 rounded bg-gray-800 border border-gray-600"
+            disabled={submitted}
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm mb-1">Guess the Humidity (%):</label>
+          <input
+            type="number"
+            value={guessedHumidity}
+            onChange={(e) => setGuessedHumidity(e.target.value)}
+            className="w-full p-2 rounded bg-gray-800 border border-gray-600"
+            disabled={submitted}
+          />
+        </div>
+
+        <button
+          onClick={handleSubmit}
+          className="w-full py-2 mt-4 bg-blue-600 hover:bg-blue-700 rounded text-white font-semibold"
+          disabled={submitted}
+        >
+          Submit Guess
+        </button>
       </div>
-      {data && (
-        <div className="mt-8 text-center text-white/80">
-          <p>🌡️ Temp: {data.local_temperature}°C</p>
-          <p>💧 Humidity: {data.local_humidity}%</p>
+
+      {submitted && realData && (
+        <div className="mt-8 text-center space-y-2">
+          <h2 className="text-xl font-semibold">📊 Actual Values:</h2>
+          <p>🌡️ Temperature: <strong>{realData.local_temperature}°C</strong></p>
+          <p>💧 Humidity: <strong>{realData.local_humidity}%</strong></p>
+          <p>☁️ Outside: <strong>{realData.owm_description}</strong> ({realData.owm_temperature}°C / {realData.owm_humidity}%)</p>
         </div>
       )}
-    </main>
+    </div>
   );
 }
