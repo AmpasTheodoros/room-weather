@@ -1,18 +1,15 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
 import clsx from 'clsx';
 
 const ROWS = 12;
 const COLS = 7;
 
-function simulatePlinkoPath(startCol: number, humidity: number): number[] {
+function simulatePlinkoPath(startCol: number): number[] {
   const path = [startCol];
   let col = startCol;
   const rand = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min;
-  const seed = Math.floor(humidity * 100);
-  Math.seed = seed;
   for (let i = 0; i < ROWS; i++) {
     const move = rand(0, 2);
     if (move === 0 && col > 0) col--;
@@ -22,8 +19,13 @@ function simulatePlinkoPath(startCol: number, humidity: number): number[] {
   return path;
 }
 
+type RoomData = {
+  local_temperature: number;
+  local_humidity: number;
+};
+
 export default function Home() {
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<RoomData | null>(null);
   const [path, setPath] = useState<number[]>([]);
   const [currentRow, setCurrentRow] = useState<number>(0);
 
@@ -33,9 +35,8 @@ export default function Home() {
       const json = await res.json();
       setData(json);
       const temp = json.local_temperature;
-      const hum = json.local_humidity;
       const startCol = Math.max(0, Math.min(COLS - 1, Math.floor(((temp - 15) / 40) * COLS)));
-      const p = simulatePlinkoPath(startCol, hum);
+      const p = simulatePlinkoPath(startCol);
       setPath(p);
       setCurrentRow(0);
     };
