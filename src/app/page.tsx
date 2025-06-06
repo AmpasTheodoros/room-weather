@@ -2,8 +2,13 @@
 
 import { useEffect, useState } from "react";
 
+type RoomData = {
+  temperature?: number;
+  humidity?: number;
+};
+
 export default function Home() {
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<RoomData | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -13,8 +18,7 @@ export default function Home() {
     };
 
     fetchData();
-
-    const interval = setInterval(fetchData, 5000); // refresh every 5s
+    const interval = setInterval(fetchData, 5000);
     return () => clearInterval(interval);
   }, []);
 
@@ -26,7 +30,6 @@ export default function Home() {
           <div className="space-y-2">
             {data.temperature && <p>Temperature: {data.temperature}°C</p>}
             {data.humidity && <p>Humidity: {data.humidity}%</p>}
-            {!data.temperature && !data.humidity && <p>{JSON.stringify(data)}</p>}
           </div>
         ) : (
           <p>Waiting for data from Raspberry Pi...</p>
