@@ -1,83 +1,91 @@
 'use client';
 
-import { useEffect, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useEffect, useState } from 'react';
+import { motion } from 'framer-motion';
+import clsx from 'clsx';
 
-type RoomData = {
-  temperature?: number;
-  humidity?: number;
-};
+const ROWS = 12;
+const COLS = 7;
+
+function simulatePlinkoPath(startCol: number, humidity: number): number[] {
+  const path = [startCol];
+  let col = startCol;
+  const rand = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min;
+  const seed = Math.floor(humidity * 100);
+  Math.seed = seed;
+  for (let i = 0; i < ROWS; i++) {
+    const move = rand(0, 2);
+    if (move === 0 && col > 0) col--;
+    if (move === 2 && col < COLS - 1) col++;
+    path.push(col);
+  }
+  return path;
+}
 
 export default function Home() {
-  const [data, setData] = useState<RoomData | null>(null);
-  const [result, setResult] = useState<string | null>(null);
-  const [randomNumber, setRandomNumber] = useState<number | null>(null);
-
-  const checkWin = (temp: number, hum: number) => {
-    const rand = Math.floor(Math.random() * 100) + 1;
-    setRandomNumber(rand);
-
-    const min = Math.min(temp, hum);
-    const max = Math.max(temp, hum);
-
-    if (rand > min && rand < max) {
-      setResult("🎉 You Win!");
-    } else {
-      setResult("💀 You Lose!");
-    }
-  };
+  const [data, setData] = useState<any>(null);
+  const [path, setPath] = useState<number[]>([]);
+  const [currentRow, setCurrentRow] = useState<number>(0);
 
   useEffect(() => {
     const fetchData = async () => {
-      const res = await fetch("/api/data");
+      const res = await fetch('/api/data');
       const json = await res.json();
       setData(json);
-
-      if (json.temperature && json.humidity) {
-        checkWin(json.temperature, json.humidity);
-      }
+      const temp = json.local_temperature;
+      const hum = json.local_humidity;
+      const startCol = Math.max(0, Math.min(COLS - 1, Math.floor(((temp - 15) / 40) * COLS)));
+      const p = simulatePlinkoPath(startCol, hum);
+      setPath(p);
+      setCurrentRow(0);
     };
 
     fetchData();
-    const interval = setInterval(fetchData, 5000);
+    const interval = setInterval(fetchData, 8000);
     return () => clearInterval(interval);
   }, []);
 
+  useEffect(() => {
+    if (path.length === 0) return;
+    const timer = setInterval(() => {
+      setCurrentRow((r) => {
+        if (r >= path.length - 1) {
+          clearInterval(timer);
+          return r;
+        }
+        return r + 1;
+      });
+    }, 300);
+    return () => clearInterval(timer);
+  }, [path]);
+
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-black to-gray-900 text-white px-6 py-12">
-      <h1 className="text-3xl sm:text-4xl font-bold mb-6 text-center">🎰 Lucky Room Draw</h1>
-
-      {data ? (
-        <div className="bg-white/10 rounded-xl p-6 sm:p-10 shadow-lg backdrop-blur text-center w-full max-w-md">
-          <p className="text-lg sm:text-xl mb-4">
-            📡 Temperature: <strong>{data.temperature}°C</strong><br />
-            💧 Humidity: <strong>{data.humidity}%</strong>
-          </p>
-
-          <AnimatePresence>
-            {randomNumber && (
-              <motion.div
-                key={randomNumber}
-                initial={{ scale: 0.6, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0.6, opacity: 0 }}
-                transition={{ duration: 0.5 }}
+    <main className="min-h-screen bg-gradient-to-b from-black to-gray-900 flex flex-col items-center justify-center py-10 px-4 text-white">
+      <h1 className="text-3xl font-bold mb-8">🔮 Plinko Sensor Game</h1>
+      <div className="grid grid-rows-[repeat(12,_30px)] grid-cols-7 gap-1 border p-2 rounded bg-white/10">
+        {Array.from({ length: ROWS }).map((_, rowIdx) => (
+          Array.from({ length: COLS }).map((_, colIdx) => {
+            const isBall = rowIdx === currentRow && path[rowIdx] === colIdx;
+            return (
+              <div
+                key={`${rowIdx}-${colIdx}`}
+                className={clsx(
+                  'w-8 h-8 rounded-full border border-white flex items-center justify-center',
+                  isBall ? 'bg-yellow-400 animate-bounce' : 'bg-white/10'
+                )}
               >
-                <p className="text-2xl mt-4 mb-2">🎲 Random Number: <strong>{randomNumber}</strong></p>
-                <p className={`text-xl font-bold ${result?.includes("Win") ? "text-green-400" : "text-red-400"}`}>
-                  {result}
-                </p>
-              </motion.div>
-            )}
-          </AnimatePresence>
+                {isBall && '🟡'}
+              </div>
+            );
+          })
+        ))}
+      </div>
+      {data && (
+        <div className="mt-8 text-center text-white/80">
+          <p>🌡️ Temp: {data.local_temperature}°C</p>
+          <p>💧 Humidity: {data.local_humidity}%</p>
         </div>
-      ) : (
-        <p className="text-white text-lg">Waiting for data from Raspberry Pi...</p>
       )}
-
-      <p className="mt-8 text-sm text-white/60 text-center">
-        Game updates automatically every 5 seconds from live sensor values.
-      </p>
-    </div>
+    </main>
   );
 }
